@@ -2,11 +2,11 @@
 
 This Pandoc Lua filter dynamically converts text enclosed in custom delimiters into LaTeX commands. It's designed for flexibility, allowing users to define their own placeholders and corresponding LaTeX commands through metadata.
 
-## Purpose
+## First steps
 
-The primary purpose of `flexspan` extension is to provide a simple, yet powerful, way to create custom inline formatting in Pandoc-flavored Markdown, assigning the symbols with specific commands (classes).
+The main purpose of the `flexspan` extension is to let users create custom inline formatting in Pandoc-flavored Markdown. Users assign symbols to specific commands (classes).
 
-First, some placeholders should be defined in the extension's metadata, and assign them to a "command". With these definitions in place, the extension scans the document paragraphs for the presence o opening and closing placeholders, and encapsulates the text inside the placeholders into a new span, with the class provided by the command defined.
+First, define placeholders in the extension's metadata and assign each to a command. The extension scans paragraphs for these placeholders, then wraps the enclosed text in a new span with the specified class.
 
 Suppose we have this definition in the metadata:
 
@@ -43,7 +43,7 @@ The extension generates spans for any type of output document format, but it is 
 
 This extension adds new text formatting markup via user-defined placeholders indicating the sentinel characters to the left and to the right, enclosing a single word or a sentence.
 
-it should be configured via the `flexspan` metadata key in your document's YAML front matter. You can define one or more "filters", each specifying a set of delimiters and the command to be decorate the span element.
+Configure it using the `flexspan` metadata key in your document's YAML front matter. You can define one or more filters, each with its own set of delimiters and command to decorate the span element.
 
 > [!CAUTION]
 >
@@ -74,7 +74,7 @@ flexspan:
 
 > [!IMPORTANT]
 >
-> Notice that each filter definition starts with an '-' (a list in yaml) and contains the left, right and command attributes. Multiple definitions are possible.
+> Each filter definition starts with a dash (a list in YAML) and contains the left, right, and command attributes. You can define multiple filters.
 
 We can write the following paragraph:
 
@@ -90,9 +90,9 @@ In an HTML document, the `flexspan` text would be enclosed in a span with `textt
 
 ### Passing options to the command
 
-The syntax can be extended and the user can pass additional options following the placeholders, by enclosing some text in parenthesis, after the right placeholder.
+The syntax can be extended. Users can add extra options after the placeholders by enclosing the text in parentheses, right after the right placeholder.
 
-Given that the `custombox` command accepts one optional argument, which is the name of the background color, we can pass it to the placeholders, enclosing it in parenthesis, after the right placeholder.
+Suppose the `custombox` command accepts one optional argument, which is the background color. You can pass this argument by typing it in parentheses right after the right placeholder.
 
 - Usage
 
@@ -104,7 +104,7 @@ Using the new placeholders !!flexspan!!(LimeGreen) with options
 
       Using the new placeholders \command[LimeGreen]{flexspan} with options
 
-Essentially, the options are passed directly to the LaTeX command, as an optional argument (inside square brackets)
+Options are passed directly to the LaTeX command as an optional argument placed inside square brackets.
 
 ### Adding options to the metadata
 
@@ -132,15 +132,15 @@ Using the new placeholders -!flexspan!- with opts: Cerulean
 
 > [!NOTE]
 >
-> You can still pass options to a placeholder that contains default opts. In this case it will override the defaults
+> You can still pass options to a placeholder with default opts. In such cases, the inline option will override the default.
 
 ### Metadata rules and aliases
 
 There are some rules for the filters definitions:
 
-1. Mandatory parameters are 'left' and 'command', with one of them is missing, then the filter has no effect
-2. The parameter 'right' can be omitted; in this case it takes the same value as the 'left' placeholder
-3. There are some aliases that can be used interchangeably o specify the elements of the filter
+1. Mandatory parameters are 'left' and 'command'. If either is missing, the filter has no effect
+2. You can omit the `right` parameter. If omitted, it defaults to the value of `left`
+3. Some aliases can be used interchangeably to specify filter elements
 
 | Parameter | Possible aliases   |
 | --------- | ------------------ |
