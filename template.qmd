@@ -1,0 +1,35 @@
+---
+title: "flexspan example"
+subtitle: Pandoc/Quarto extension
+filters:
+  - _extensions/flexspan/flexspan.lua
+flexspan:
+  - left: "[-"
+    right: "-]"
+    command: "texttt" # Mono font in LaTeX 
+  - left: "!!"
+    right: "!!"
+    command: "textbf" # Bold font in LaTeX
+  - left: "--"
+    right: "--"
+    command: "custombox" # New command with an optional parameter that defines the color for drawing a box around the text. Default is Red
+  - left: "-!"
+    right: "!-"
+    command: "custombox" 
+    opts: Cerulean 
+
+format:
+  pdf:
+    include-in-header:
+      - text: |
+          \usepackage[dvipsnames]{xcolor}
+          \newcommand{\custombox}[2][Dandelion]{\colorbox{#1}{#2}}
+    keep-tex: true
+---
+
+## Usage
+
+* This is a test of [-flexspan-] extension and it is !!nice!!
+* Using the new placeholders --flexspan--(LimeGreen) with options
+* Using the new placeholders -!flexspan!- with opts: Cerulean
+
