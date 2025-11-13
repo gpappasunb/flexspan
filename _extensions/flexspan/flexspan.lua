@@ -110,7 +110,7 @@ require("mobdebug").start()
 local SKIP_CLASS = "skipspan"
 
 -- ┤ The filters that are defined in the Metadata ├░░░░░░░░░░░░░░░░░░░░░░░
-local filters = {}
+local FILTERS = {}
 -- ┤ The valid commands inside the filters        ├░░░░░░░░░░░░░░░░░░░░░░░
 local _commands = {}
 
@@ -154,6 +154,21 @@ function escape_latex_special_chars(s)
 	return s:gsub("[#$%%&~_^{}\\\\|<>]", escape_map)
 end
 
+-- ░░………………………………………………………………………………………………………………………………………░ table_keys {{{2
+--- Extracts the keys of a table
+-- @param tbl The table to be queried
+-- @return table with the keys
+local function table_keys(tbl)
+	if type(tbl) ~= "table" then
+		return {}
+	end
+	local keys = {}
+	for key, _ in pairs(tbl) do
+		table.insert(keys, key)
+	end
+	return keys
+end
+
 -- ░░………………………………………………………………………………………………………………………………………░ table_intersect {{{2
 local function table_intersect(table1, table2)
 	-- Check for the first key in the second list that exists in the lookup table
@@ -164,6 +179,119 @@ local function table_intersect(table1, table2)
 	end
 
 	return nil -- Return nil if no intersection is found
+end
+--
+-- ◣…………………………………………………………………………………………………………◢ table_first_common_element {{{2
+--- Finds the first value that is present in both input tables (treated as collections of values).
+-- This works for tables structured as lists (e.g., { "a", "b" }) or maps (e.g., { k = "a", j = "b" }),
+-- as it compares the *values* within the tables.
+-- @tparam table table1 The first table (e.g., { "a", "b", "c" } or { x = "a", y = "b" }).
+-- @tparam table table2 The second table (e.g., { "x", "b", "z" } or { i = "x", j = "b" }).
+-- @return The first common *value* found across both tables, or `nil` if no common values exist.
+local function table_first_common_element(tbl1, tbl2)
+	-- Create a lookup table for values in table2 for O(1) average time complexity checks
+	local lookup2 = {}
+	for _, v in pairs(tbl2) do
+		lookup2[v] = true
+	end
+
+	-- Iterate through table1's values
+	for _, v in pairs(tbl1) do
+		-- Check if the current value from table1 exists as a key in the lookup table of table2's values
+		if lookup2[v] then
+			-- Return the first common value found
+			return v
+		end
+	end
+
+	-- Return nil if no common value is found after checking all values
+	return nil
+end
+
+
+-- ◣…………………………………………………………………………………………………………………………………◢ table_filter_keys {{{2
+--- Filters a table, keeping only key-value pairs where the key exists in a given list of keys.
+-- @param table original_table The table to be filtered (e.g., { a = 1, b = 2, c = 3 }).
+-- @param table keys_to_keep A table containing the keys to retain (e.g., { "a", "c" }).
+-- @return table A new table with only the specified key-value pairs (e.g., { a = 1, c = 3 }).
+local function table_filter_keys(original_table, keys_to_keep)
+	local filtered_table = {}
+	-- Iterate through the list of keys to keep
+	for _, key in ipairs(keys_to_keep) do
+		-- If the key exists in the original table, add it to the filtered table
+		if original_table[key] ~= nil then
+			filtered_table[key] = original_table[key]
+		end
+	end
+	return filtered_table
+end
+
+--- Filters a table of nested tables by a specific key, returning a list of unique values for that key.
+-- @param table nested_table The table containing nested tables (e.g., { { id = 1 }, { id = 2 }, { id = 1 } }).
+-- @param string key The key name to look for in the nested tables (e.g., "id").
+-- @return table A new table containing the unique values found under the specified key (e.g., { 1, 2 }).
+local function table_get_inner_key(tbl, key)
+	local seen_values = {} -- Use a table to track which values have been encountered
+	local unique_values = {} -- The final list of unique values
+
+	for _, inner_table in pairs(tbl) do
+		if type(inner_table) == "table" then
+			local value = inner_table[key]
+			-- Only add the value if it hasn't been seen before and is not nil
+			if value ~= nil and not seen_values[value] then
+				seen_values[value] = true -- Mark the value as seen
+				table.insert(unique_values, value)
+			end
+		end
+	end
+
+	return unique_values
+end
+
+-- ◣……………………………………………………………………………………………………………………◢ table_filter_inner_key {{{2
+local function table_filter_inner_key(tbl, key, value, index)
+	local filtered = {} -- The final list of unique values
+
+	for tbl_key, inner_table in pairs(tbl) do
+		for i, filt in ipairs(inner_table) do
+			-- if index and type(inner_table[index]) == "table" then
+			-- 	inner_table = inner_table[index]
+			-- end
+			if type(filt) == "table" then
+				local inner_value = filt[key]
+				-- Only add the value if it hasn't been seen before and is not nil
+				if inner_value ~= nil and inner_value == value then
+					-- table.insert(filtered, inner_table)
+					-- table.insert(filtered[tbl_key], filt)
+					filtered[tbl_key] = { filt }
+				end
+			end
+		end
+	end
+
+	return filtered
+end
+
+-- ◣…………………………………………………………………………………………………………………………………………………◢ table_clone {{{2
+-- Clones a table
+-- @param table original table as indices
+-- @return table exact table copy
+function table_clone(tbl)
+	local clone = {}
+	for i, value in ipairs(tbl) do
+		clone[i] = value
+	end
+	return clone
+end
+
+function table_remove_nil(tbl)
+	local result = {}
+	for _, value in ipairs(tbl) do
+		if value ~= nil then
+			table.insert(result, value)
+		end
+	end
+	return result
 end
 
 -- ░░………………………………………………………………………………………………………………………………………░ filter_intersect {{{2
@@ -192,6 +320,19 @@ local function filter_intersect(filters1, filters2)
 	end
 
 	-- If no match is found after checking all combinations, return nil.
+	return nil
+end
+-- ◣…………………………………………………………………………………………………………………………………………………◢ filter_find {{{2
+-- Finds the filter with the given left and right patterns
+-- @param str the left placeholder
+-- @param str the right placeholder
+-- @retrun table Filter found. nil if not found
+local function filter_find(_left, _right)
+	for i, f in FILTERS do
+		if f.left == _left and f.right == _right then
+			return f
+		end
+	end
 	return nil
 end
 
@@ -392,6 +533,8 @@ local function find_pattern_in_str(s, pattern, is_right, is_exact)
 		-- Exact match was found
 		if s == pattern then
 			return 1, #s, nil
+		elseif s:find("^" .. pattern .. "$") then -- Match entire line, but accepts escaped chars
+			return 1, #s, nil
 		elseif s:find("^" .. pattern .. "%s*(%b())") then
 			start_pos, end_pos, args = s:find(pattern .. "%s*(%b())")
 			return start_pos, end_pos, args and args:sub(2, -2) or ""
@@ -408,7 +551,9 @@ local function find_pattern_in_str(s, pattern, is_right, is_exact)
 			start_pos, end_pos = s:find(pattern .. "$")
 		else
 			-- Finds exact match, starting from the end
-			start_pos, end_pos = s:find(pattern .. "$", is_right + 1)
+			-- start_pos, end_pos = s:find(pattern .. "$", is_right + 1)
+			--TODO: FIX
+			start_pos, end_pos = s:find(pattern .. "$", 2)
 		end
 		if start_pos then
 			return start_pos, end_pos, nil
@@ -421,7 +566,9 @@ local function find_pattern_in_str(s, pattern, is_right, is_exact)
 		end
 		-- Find pattern containing a single punctuation at the end
 		-- local start_pos_end, end_pos_end, punctuation = s:find(pattern .. "([.;:?!-]?)$", 2)
-		local start_pos_end, end_pos_end, punctuation = s:find(pattern .. "(%p?)$", is_right + 1)
+		-- --TODO: FIX is_right
+		-- local start_pos_end, end_pos_end, punctuation = s:find(pattern .. "(%p?)$", is_right + 1)
+		local start_pos_end, end_pos_end, punctuation = s:find(pattern .. "(%p?)$", 2)
 		if start_pos_end then
 			if #punctuation == 0 then
 				punctuation = nil
@@ -512,46 +659,84 @@ end
 -- @param filter A table containing the filter class/command and contents
 -- @param attributes A table of attributes for the new Span.
 -- @return A new pandoc.List of inlines with the specified elements wrapped in a Span. Also, the position in the list where the span was inserted
-local function wrap_inlines_span(inlines, start_idx, end_idx, filter, attributes)
-	attributes = attributes or {}
-
+local function wrap_inlines_span(_inlines, start_idx, end_idx, filter, opts, end_pattern)
+	-- opts = opts or {}
+	end_pattern = end_pattern or "$"
 	local span_class = filter.command
-	local span_contents = filter.content
+	local punctuation = nil
 
-	local before_slice = slice(inlines, 1, start_idx - 1)
-	-- local before_slice = slice(inlines, 1, start_idx - 1)
-	local inside_span = slice(inlines, start_idx, end_idx)
-	local after_slice = slice(inlines, end_idx + 1, #inlines)
-	-- local after_slice = slice(inlines, end_idx + 1, #inlines)
+	-- ┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┤ Processing the options, if provided ├┅┅┅┅┅┅┅┅┅┅┅┅┅┅
+	if opts then
+		-- Checking if opts is a punctuation symbol
+		-- local p_start, _, p = opts:find("^([.;:?!-]?)$")
+		local p_start, _, p = opts:find("^(%p?)$")
+		if p_start then
+			-- Creating a Str for the punctuation after the placeholder
+			punctuation = pandoc.Str(p)
+			end_pattern = p .. "$"
+			opts = nil
+		else
+			end_pattern = "%s*(%b())"
+		end
+	else
+		-- Use the options defined in the metadata, in case no options provided
+		-- it stil can be nil
+		opts = filter.options
+	end
+	-- ┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┤ Processing the left placeholder ├┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅
+	-- Getting the left placeholder text
+	local left_txt = _inlines[start_idx].text
+	-- Cleaning the placeholders in the range
+	-- 	-- Both placeholders are in the same element
+	if start_idx == end_idx then
+		-- For exact filters, both are joined in the left_txt, and are simply erased
+		if filter.exact then
+			left_txt = filter.content or ""
+		else -- This case there are contents inside the placeholders, that will be kept
+			left_txt = left_txt:gsub("^" .. filter.left .. "(.-)" .. filter.right .. end_pattern, "%1", 1)
+		end
+	else -- Placeholders in different elements. Remove the left and right placeholders
+		left_txt = left_txt:gsub("^" .. filter.left, "", 1)
+		local right_txt = _inlines[end_idx].text
+		right_txt = right_txt:gsub(filter.right .. end_pattern, "", 1)
+		_inlines[end_idx].text = right_txt
+	end
+	_inlines[start_idx].text = left_txt
+
+	-- ┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┤ Elements inside the span ├┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅
+	local inside_span = slice(_inlines, start_idx, end_idx)
 
 	-- 1. Create the new Span element
-	if type(attributes) == "string" then
-		local _, attr_table = split_key_value_pairs(attributes, ",")
-		attributes = attr_table
+	if type(opts) == "string" then
+		local _, attr_table = split_key_value_pairs(opts, ",")
+		opts = attr_table
 	end
 	-- Creating the attributes, id=string, classes={}, other attributes={}
-	local pandoc_attr = pandoc.Attr("", { span_class }, attributes)
+	local pandoc_attr = pandoc.Attr("", { span_class }, opts)
 	-- Creating the span
 	local span = pandoc.Span(inside_span, pandoc_attr)
-	if span_contents then
-		span = pandoc.Span(span_contents, pandoc_attr)
+	-- This is a special case, where the user discards the
+	-- text inside the span and forces to use the provided content
+	if filter.content then
+		span = pandoc.Span(filter.content, pandoc_attr)
 	end
 
-	-- 2. Build the final result list by combining the three parts
-	local result = before_slice
+	-- -- 2. Build the final result list by combining the three parts
+	-- local result = before_slice
+	--
+	-- -- Insert the single new Span element
+	-- result:insert(span)
+	-- -- Position where the span was inserted
+	-- local span_pos = #result
+	-- -- Insert all elements from the after_slice list
+	-- if after_slice then
+	-- 	for _, el in ipairs(after_slice) do
+	-- 		result:insert(el)
+	-- 	end
+	-- end
 
-	-- Insert the single new Span element
-	result:insert(span)
-	-- Position where the span was inserted
-	local span_pos = #result
-	-- Insert all elements from the after_slice list
-	if after_slice then
-		for _, el in ipairs(after_slice) do
-			result:insert(el)
-		end
-	end
-
-	return result, span_pos
+	-- return result, span_pos
+	return span, punctuation
 end
 
 -- ░░………………………………………………………………………………………………░ create_exact_filters_map {{{2
@@ -621,19 +806,8 @@ local function find_pattern_in_inlines(inlines, start_idx, is_right, is_exact)
 	return nil
 end
 
---- Finds a pattern within the Str elements of an inlines list.
--- @param inlines A pandoc.List of inline elements.
--- @param pattern The string pattern to search for.
--- @param is_right Boolean, if true, searches from the end of the string
--- @return If a match is found, returns:
---   - index of the Str element.
---   - Options captured arguments from inside () if any.
---   - The filter table
---   - start position of the match within the string.
---   - end position of the match within the string.
---   - the Str element itself.
--- @return If no match is found, returns nil.
-local function OLDfind_pattern_in_inlines(inlines, pattern, start_idx, is_right, is_exact)
+--[[
+local function NEWfind_pattern_in_inlines(inlines, placeholders, start_idx, is_right, is_exact)
 	start_idx = start_idx or 1
 	-- if is_right == nil then
 	-- 	is_right = 0
@@ -647,25 +821,132 @@ local function OLDfind_pattern_in_inlines(inlines, pattern, start_idx, is_right,
 		local el = inlines[i]
 		if el.t == "Str" then
 			local start_pos, end_pos, opts
-			if is_right == nil then --Left pattern
-				for pat, _filt in pairs(PLACEHOLDERS_LEFT) do
-					start_pos, end_pos, opts = find_pattern_in_str(el.text, pat, is_right, is_exact)
-					if start_pos then
-						return i, opts, _filt, start_pos, end_pos, el
-					end
-				end
-			else
-				for pat, _filt in pairs(PLACEHOLDERS_RIGHT) do
-					start_pos, end_pos, opts = find_pattern_in_str(el.text, pat, is_right, is_exact)
-					if start_pos then
-						return i, opts, _filt, start_pos, end_pos, el
-					end
+			for pat, _filt in pairs(placeholders) do
+				start_pos, end_pos, opts = find_pattern_in_str(el.text, pat, is_right, is_exact)
+				if start_pos then
+					return i, opts, _filt, start_pos, end_pos, el
 				end
 			end
 		end
 	end
 	return nil
 end
+]]
+
+--- Finds a pattern within the Str elements of an inlines list.
+-- @param inlines A pandoc.List of inline elements.
+-- @param pattern The string pattern to search for.
+-- @param is_right Boolean, if true, searches from the end of the string
+-- @return If a match is found, returns:
+--   - index of the Str element.
+--   - Options captured arguments from inside () if any.
+--   - The filter table
+--   - start position of the match within the string.
+--   - end position of the match within the string.
+--   - the Str element itself.
+-- @return If no match is found, returns nil.
+local function NEWfind_pattern_in_inlines(inlines, placeholders, start_idx, is_right, is_exact)
+	local results = {}
+	start_idx = start_idx or 1
+	-- if is_right == nil then
+	-- 	is_right = 0
+	-- end
+	-- Check if out of bounds
+	if start_idx > #inlines then
+		return nil
+	end
+
+	for i = start_idx, #inlines do
+		-- for i, el in ipairs(merged_inlines) do
+		local el = inlines[i]
+		if el.t == "Str" then
+			local start_pos, end_pos, opts
+			for pat, _filt in pairs(placeholders) do
+				start_pos, end_pos, opts = find_pattern_in_str(el.text, pat, is_right, is_exact)
+				if start_pos then
+					table.insert(results, {
+						inline_pos = i,
+						opts = opts,
+						filter = _filt,
+						match_start = start_pos,
+						match_end = end_pos,
+						pattern = pat,
+					})
+				end
+			end
+		end
+	end
+	if #results then
+		-- Sort the table by inline_pos and match_start
+		table.sort(results, function(a, b)
+			if a.inline_pos == b.inline_pos then
+				return a.match_start < b.match_start
+			else
+				return a.inline_pos < b.inline_pos
+			end
+		end)
+		return results
+	else
+		return nil
+	end
+end
+
+local function find_common_filter(_left, _right)
+	local common = table_first_common_element(_left, _right)
+	return common
+
+	--[[
+	for _, r in ipairs(_right) do
+		local rfilter = r.filter
+		for _, l in ipairs(_left) do
+			local lfilter = l.filter
+			if lfilter == rfilter then
+				return lfilter
+			end
+		end
+	end
+	return nil
+	]]
+end
+
+
+local function find_match_pair(_left, _right)
+	local final_matches = {
+		-- left = nil,
+		-- right = nil,
+		-- filter = nil,
+	}
+
+	-- Find the common filter between the left and right matches
+	-- if not common_filter then
+	-- 	return nil
+	-- end
+	for i, rmatch in ipairs(_right) do
+		if _left.inline_pos == rmatch.inline_pos then
+			if _left.match_end >= rmatch.match_start then
+				goto continue
+			end
+		elseif _left.inline_pos > rmatch.inline_pos then
+			goto continue
+		end
+		local common_filter = find_common_filter(_left.filter, rmatch.filter)
+		final_matches.left = _left.inline_pos
+		final_matches.right = rmatch.inline_pos
+		final_matches.filter = common_filter --rmatch.filter -- filter_find(_left.pattern, rmatch.pattern)
+		final_matches.opts = rmatch.opts
+		if final_matches.filter then
+			return final_matches
+		end
+
+		::continue::
+	end
+	-- if final_matches.filter then
+	-- 	return final_matches
+	-- else
+	return nil
+	-- end
+end
+
 
 --- Replaces matched placeholder patterns within a list of inline elements with a `pandoc.Span`.
 -- This function is central to the flexspan filter's functionality. It identifies
@@ -710,6 +991,13 @@ local function replace_span(inlines, filter)
 		else --if not filter.exact then
 			-- ┅┤ Trying to find the left pattern ├┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅
 			left_pos, _, left_filter, left_match_pos = find_pattern_in_inlines(inlines, current_pos)
+
+			xpat = NEWfind_pattern_in_inlines(inlines, PLACEHOLDERS_LEFT, current_pos)
+			local left_patterns = table_get_inner_key(xpat, "pattern")
+
+			local right_pattern_available = table_filter_keys(PLACEHOLDERS_LEFT, left_patterns)
+			local X = table_filter_inner_key(PLACEHOLDERS_RIGHT, "left", xpat[1].pattern, 1)
+
 			-- left_pos, _, left_filter, left_match_pos = find_pattern_in_inlines(inlines, filter.left, current_pos)
 			if not left_pos then
 				-- Return unmodified
@@ -733,6 +1021,9 @@ local function replace_span(inlines, filter)
 			else
 				right_pos, opts, right_filter, right_match_pos =
 					find_pattern_in_inlines(inlines, left_pos, left_match_pos)
+
+				xpat_right = NEWfind_pattern_in_inlines(inlines, right_pattern_available, left_pos, left_match_pos)
+				xpat_right = NEWfind_pattern_in_inlines(inlines, X, left_pos, left_match_pos)
 				-- right_pos, opts, right_filter, right_match_pos = find_pattern_in_inlines(inlines, filter.right, left_pos, #filter.left)
 				-- Matches of left and right positions are the same. Begin matching after the left_pos
 				if left_pos == right_pos and left_match_pos == right_match_pos then
@@ -838,6 +1129,213 @@ local function replace_span(inlines, filter)
 	return inlines, false
 end
 
+local function NEWreplace_span(inlines, filter)
+	local current_pos = 1
+	-- ┅┅┅┅┅┅┅┅┅┅┅┅┅┤ Finding all the pattern matches in the inlines ├┅┅┅┅┅┅┅┅┅┅┅┅
+	-- ░░░░░░┤ Iterating over the matches and performing the span changes ├░░░░░░
+	local left_pos, left_match_pos, left_filter
+	local right_pos, right_match_pos, right_filter
+	local opts
+
+	-- ┅┤ Trying to find the left pattern ├┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅
+
+	-- Returns a list of all matching inline positions
+	-- containing a match to the left placeholders
+	local left_matches = NEWfind_pattern_in_inlines(inlines, PLACEHOLDERS_LEFT)
+
+	--[[
+	local exact_matches = NEWfind_pattern_in_inlines(inlines, EXACT_FILTERS, 1, 1, true)
+	if #exact_matches then
+		for i, match in ipairs(exact_matches) do
+			local pos = match.inline_pos
+			left_pos = match.left
+			right_pos = match.right
+			filter = match.filter
+			opts = match.opts
+			if opts then
+				-- Checking if opts is a punctuation symbol
+				-- local p_start, _, p = opts:find("^([.;:?!-]?)$")
+				local p_start, _, p = opts:find("^(%p?)$")
+				if p_start then
+					-- Creating a Str for the punctuation after the placeholder
+					punctuation = pandoc.Str(p)
+					end_pattern = p .. "$"
+					opts = nil
+				else
+					end_pattern = "%s*(%b())"
+				end
+			else
+				-- Use the options defined in the metadata, in case no options provided
+				-- it stil can be nil
+				opts = filter.options
+			end
+			-- Getting the span attributes table
+			_, attr_table = split_key_value_pairs(opts, ",")
+			-- Handle special case of a single Str element containing the left and right placeholders
+			local new_span
+			local new_inlines = {}
+			-- This is a special case, where the user discards the
+			-- text inside the span and forces to use the provided content
+			local filter_content = filter.content
+			-- The left and right placeholders are in a single string
+
+			-- ░░░░░░░░░░░░░░░┤ Wraping the inlines range inside a Span ├░░░░░░░░░░░░
+			-- Getting the new Span
+			new_span = wrap_inlines_span(inlines, pos, pos, filter, attr_table)
+			inlines[pos] = new_span
+		end
+	end
+]]
+
+	-- left_pos, _, left_filter, left_match_pos = find_pattern_in_inlines(inlines, filter.left, current_pos)
+	if #left_matches == 0 then
+		-- Return unmodified
+		return inlines, false
+	end
+
+	-- ┅┤ Trying to find the right pattern ├┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅
+	--
+	-- Finding the right matches for each left_match
+	--
+	local matching_locations = {}
+	for i, _lmatch in ipairs(left_matches) do
+		local right_matches_local = NEWfind_pattern_in_inlines(inlines, PLACEHOLDERS_RIGHT, i, true)
+		-- left_matches[i]["right_match"] = find_match_pair(_lmatch, right_matches_local)
+
+		local match_pair = find_match_pair(_lmatch, right_matches_local)
+
+		-- No right match for this placeholder. SKIP
+		if match_pair and match_pair.filter then
+			table.insert(matching_locations, match_pair)
+		end
+	end
+
+	-- Getting the first position of the match
+	local start_idx = matching_locations[1].left
+	-- The total number of inlines being processed
+	local total_inlines = #inlines
+	-- The new inlines start with the inlines up to the first match location
+	local inlines_modified = slice(inlines, 1, start_idx - 1)
+	local last_inline_pos = 1
+
+	-- ┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┤ Iterating the valid match locations ├┅┅┅┅┅┅┅┅┅┅┅┅┅┅
+	local span_counter = 1
+	for i, match in ipairs(matching_locations) do
+		left_pos = match.left
+		right_pos = match.right
+		filter = match.filter
+		opts = match.opts
+
+		-- Copying the inline elements between the last position of the previous
+		-- matching_locations and the begining of the current match
+		if last_inline_pos < left_pos then
+			for i = last_inline_pos, left_pos - 1 do
+				table.insert(inlines_modified, inlines[i])
+			end
+		end
+
+		-- ┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┤ Skip if positions not found ├┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅
+		if not (left_pos and right_pos) then
+			goto continue
+		end
+
+		-- local end_pattern = "$" -- Regex to mark end of the line
+		-- local attr_table
+		local punctuation = nil
+		-- if opts then
+		-- 	-- Checking if opts is a punctuation symbol
+		-- 	-- local p_start, _, p = opts:find("^([.;:?!-]?)$")
+		-- 	local p_start, _, p = opts:find("^(%p?)$")
+		-- 	if p_start then
+		-- 		-- Creating a Str for the punctuation after the placeholder
+		-- 		punctuation = pandoc.Str(p)
+		-- 		end_pattern = p .. "$"
+		-- 		opts = nil
+		-- 	else
+		-- 		end_pattern = "%s*(%b())"
+		-- 	end
+		-- else
+		-- 	-- Use the options defined in the metadata, in case no options provided
+		-- 	-- it stil can be nil
+		-- 	opts = filter.options
+		-- end
+		-- Getting the span attributes table
+		-- _, attr_table = split_key_value_pairs(opts, ",")
+		-- Handle special case of a single Str element containing the left and right placeholders
+		local new_span
+		-- local new_inlines = {}
+		-- This is a special case, where the user discards the
+		-- text inside the span and forces to use the provided content
+		-- local filter_content = filter.content
+		-- The left and right placeholders are in a single string
+
+		-- ░░░░░░░░░░░░░░░┤ Wraping the inlines range inside a Span ├░░░░░░░░░░░░
+		-- Getting the new Span
+		new_span, punctuation = wrap_inlines_span(inlines, left_pos, right_pos, filter, attr_table)
+		-- Adding the Span to the modified inlines
+		table.insert(inlines_modified, new_span)
+		-- If a punctuation mark occurs right after the right placeholder (without a space),
+		-- add it to the modifed inlines
+		if punctuation then
+			table.insert(inlines_modified, punctuation)
+		end
+
+		span_counter = span_counter + 1
+
+		last_inline_pos = right_pos + 1
+
+		--[[
+		local txt = inlines[left_pos].text
+
+
+		if left_pos == right_pos then
+			-- First remove the placeholders
+			if filter_content then
+				txt = txt:gsub("^" .. filter.left .. "(.-)" .. filter.right .. end_pattern, filter_content, 1)
+			else
+				txt = txt:gsub("^" .. filter.left .. "(.-)" .. filter.right .. end_pattern, "%1", 1)
+			end
+			inlines[left_pos].text = txt
+			-- new_span = wrap_inlines_span(inlines, left_pos, right_pos, opts)
+			-- Creating the attributes, id=string, classes={}, other attributes={}
+			local pandoc_attr = pandoc.Attr("", { filter.command }, attr_table)
+			new_span = pandoc.Span(inlines[left_pos], pandoc_attr)
+			new_inlines = inlines
+			new_inlines[left_pos] = new_span
+			-- If a punctuation character is found after the right placeholder, then add it back as a pandoc.Str
+			if punctuation then
+				table.insert(new_inlines, left_pos + 1, punctuation)
+			end
+		else
+			-- Creating the span
+			local txt = inlines[left_pos].text
+			txt = txt:gsub("^" .. filter.left, "", 1)
+			inlines[left_pos].text = txt
+			txt = inlines[right_pos].text
+			txt = txt:gsub(filter.right .. end_pattern, "", 1)
+			inlines[right_pos].text = txt
+
+			-- Now modifying the inlines to add the span between left and right pos
+			new_inlines, span_pos = wrap_inlines_span(inlines, left_pos, right_pos, filter, opts)
+			-- Adding the punctuation
+			if punctuation then
+				table.insert(new_inlines, span_pos + 1, punctuation)
+			end
+		end
+		-- return new_inlines, true
+		inlines = new_inlines
+	]]
+		::continue::
+	end
+	-- ┅┅┅┤ Filling the inlines with elements after the last modified location ├┅┅
+	if last_inline_pos < total_inlines then
+		for i = last_inline_pos, total_inlines do
+			table.insert(inlines_modified, inlines[i])
+		end
+	end
+
+	return inlines_modified, true
+end
 -- ░░………………………………………………………………………………………………░ AST modification {{{1
 
 -- ▶……………………………………………………………………………………………………………………………………………………………………░ Meta {{{2
@@ -897,7 +1395,7 @@ function Meta(meta)
 			-- left = escape_latex_special_chars(left)
 			-- right = escape_latex_special_chars(right)
 
-			table.insert(filters, {
+			table.insert(FILTERS, {
 				left = left, -- left placeholder
 				right = right, -- right placeholder
 				command = command, -- class name of the span. Transformed to latex command
@@ -919,7 +1417,7 @@ function Meta(meta)
 	-- the larger placeholder takes precedence
 
 	-- Sort: exact=true first, then by length of left (descending)
-	table.sort(filters, function(a, b)
+	table.sort(FILTERS, function(a, b)
 		-- First criterion: exact=true comes first
 		if a.exact and not b.exact then
 			return true
@@ -950,10 +1448,17 @@ function Meta(meta)
 	end)
 	-- Transforming table to pandoc List
 	_commands = pandoc.List(_commands)
+	-- Creating exact filters map. These will be processed first
+	EXACT_FILTERS = create_exact_filters_map(FILTERS)
+	-- Sorting the xact filters by the longest matches
+	table.sort(EXACT_FILTERS, function(a, b)
+		local size_a = #a.left + #a.right
+		local size_b = #b.left + #b.right
+		return size_a > size_b
+	end)
 	-- Generating the table with the left placeholders
-	PLACEHOLDERS_LEFT = create_command_map(filters, true)
-	PLACEHOLDERS_RIGHT = create_command_map(filters, false)
-	EXACT_FILTERS = create_exact_filters_map(filters)
+	PLACEHOLDERS_LEFT = create_command_map(FILTERS, true)
+	PLACEHOLDERS_RIGHT = create_command_map(FILTERS, false)
 end
 
 -- ░░………………………………………………………………………………………………………………………………………░ process_inlines ░{{{2
@@ -961,7 +1466,7 @@ end
 -- presence of the placeholders and substituting the matches by Span elements
 -- The AST is transformed by adding the Span enclosing the match
 local function process_inlines(inline)
-	if #filters == 0 then
+	if #FILTERS == 0 then
 		print("*** NO PLACEHOLDERS DEFINED. Skipping")
 		return nil
 	end
@@ -983,7 +1488,8 @@ local function process_inlines(inline)
 		-- -- ┅┤ Trying to find the left pattern ├┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅
 		-- returns new inlines with the span added, if the left and right
 		-- patterns were found
-		inlines, modified = replace_span(inlines, filter)
+		inlines, modified = NEWreplace_span(inlines, filter)
+		-- inlines, modified = replace_span(inlines, filter)
 	end
 	-- Recalculating positions of skipped elements, since inlines were modified
 	if found_skipped and modified then
@@ -1062,8 +1568,8 @@ end
  -   ▀┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈▀
 ]]
 return {
-	{ Meta = Meta }, -- Process first the metadata
-	{ Para = process_inlines }, -- Scans the paragraphs
-	{ Plain = process_inlines }, -- Scans the paragraphs
+	{ Meta = Meta },              -- Process first the metadata
+	{ Para = process_inlines },   -- Scans the paragraphs
+	{ Plain = process_inlines },  -- Scans the paragraphs
 	{ Span = write_latex_commands }, -- Processes LaTeX spans
 }
