@@ -1198,6 +1198,7 @@ local function NEWreplace_span(inlines, filter)
 	-- Finding the right matches for each left_match
 	--
 	local matching_locations = {}
+	local seen_locations = {}
 	for i, _lmatch in ipairs(left_matches) do
 		local right_matches_local = NEWfind_pattern_in_inlines(inlines, PLACEHOLDERS_RIGHT, i, true)
 		-- left_matches[i]["right_match"] = find_match_pair(_lmatch, right_matches_local)
@@ -1219,13 +1220,16 @@ local function NEWreplace_span(inlines, filter)
 	local last_inline_pos = 1
 
 	-- ┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┤ Iterating the valid match locations ├┅┅┅┅┅┅┅┅┅┅┅┅┅┅
-	local span_counter = 1
 	for i, match in ipairs(matching_locations) do
 		left_pos = match.left
 		right_pos = match.right
 		filter = match.filter
 		opts = match.opts
 
+		-- ┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┤ Skiping if position was already processed ├┅┅┅┅┅┅┅┅┅┅┅
+		if left_pos < last_inline_pos then
+			goto continue
+		end
 		-- Copying the inline elements between the last position of the previous
 		-- matching_locations and the begining of the current match
 		if last_inline_pos < left_pos then
@@ -1239,39 +1243,12 @@ local function NEWreplace_span(inlines, filter)
 			goto continue
 		end
 
-		-- local end_pattern = "$" -- Regex to mark end of the line
-		-- local attr_table
 		local punctuation = nil
-		-- if opts then
-		-- 	-- Checking if opts is a punctuation symbol
-		-- 	-- local p_start, _, p = opts:find("^([.;:?!-]?)$")
-		-- 	local p_start, _, p = opts:find("^(%p?)$")
-		-- 	if p_start then
-		-- 		-- Creating a Str for the punctuation after the placeholder
-		-- 		punctuation = pandoc.Str(p)
-		-- 		end_pattern = p .. "$"
-		-- 		opts = nil
-		-- 	else
-		-- 		end_pattern = "%s*(%b())"
-		-- 	end
-		-- else
-		-- 	-- Use the options defined in the metadata, in case no options provided
-		-- 	-- it stil can be nil
-		-- 	opts = filter.options
-		-- end
-		-- Getting the span attributes table
-		-- _, attr_table = split_key_value_pairs(opts, ",")
-		-- Handle special case of a single Str element containing the left and right placeholders
 		local new_span
-		-- local new_inlines = {}
-		-- This is a special case, where the user discards the
-		-- text inside the span and forces to use the provided content
-		-- local filter_content = filter.content
-		-- The left and right placeholders are in a single string
 
 		-- ░░░░░░░░░░░░░░░┤ Wraping the inlines range inside a Span ├░░░░░░░░░░░░
-		-- Getting the new Span
-		new_span, punctuation = wrap_inlines_span(inlines, left_pos, right_pos, filter, attr_table)
+		-- Getting the new Span, and a punctuation mark, if exists
+		new_span, punctuation = wrap_inlines_span(inlines, left_pos, right_pos, filter, opts)
 		-- Adding the Span to the modified inlines
 		table.insert(inlines_modified, new_span)
 		-- If a punctuation mark occurs right after the right placeholder (without a space),
@@ -1280,51 +1257,9 @@ local function NEWreplace_span(inlines, filter)
 			table.insert(inlines_modified, punctuation)
 		end
 
-		span_counter = span_counter + 1
 
 		last_inline_pos = right_pos + 1
 
-		--[[
-		local txt = inlines[left_pos].text
-
-
-		if left_pos == right_pos then
-			-- First remove the placeholders
-			if filter_content then
-				txt = txt:gsub("^" .. filter.left .. "(.-)" .. filter.right .. end_pattern, filter_content, 1)
-			else
-				txt = txt:gsub("^" .. filter.left .. "(.-)" .. filter.right .. end_pattern, "%1", 1)
-			end
-			inlines[left_pos].text = txt
-			-- new_span = wrap_inlines_span(inlines, left_pos, right_pos, opts)
-			-- Creating the attributes, id=string, classes={}, other attributes={}
-			local pandoc_attr = pandoc.Attr("", { filter.command }, attr_table)
-			new_span = pandoc.Span(inlines[left_pos], pandoc_attr)
-			new_inlines = inlines
-			new_inlines[left_pos] = new_span
-			-- If a punctuation character is found after the right placeholder, then add it back as a pandoc.Str
-			if punctuation then
-				table.insert(new_inlines, left_pos + 1, punctuation)
-			end
-		else
-			-- Creating the span
-			local txt = inlines[left_pos].text
-			txt = txt:gsub("^" .. filter.left, "", 1)
-			inlines[left_pos].text = txt
-			txt = inlines[right_pos].text
-			txt = txt:gsub(filter.right .. end_pattern, "", 1)
-			inlines[right_pos].text = txt
-
-			-- Now modifying the inlines to add the span between left and right pos
-			new_inlines, span_pos = wrap_inlines_span(inlines, left_pos, right_pos, filter, opts)
-			-- Adding the punctuation
-			if punctuation then
-				table.insert(new_inlines, span_pos + 1, punctuation)
-			end
-		end
-		-- return new_inlines, true
-		inlines = new_inlines
-	]]
 		::continue::
 	end
 	-- ┅┅┅┤ Filling the inlines with elements after the last modified location ├┅┅
