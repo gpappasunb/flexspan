@@ -564,9 +564,24 @@ local function wrap_inlines_span(_inlines, start_idx, end_idx, filter, opts, end
 		right_txt = right_txt:gsub(filter.right .. end_pattern, "", 1)
 		_inlines[end_idx].text = right_txt
 	end
+
+
+	-- The left placeholder was removed
 	_inlines[start_idx].text = left_txt
 
 	-- ┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┤ Elements inside the span ├┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅
+	--@@ Special trick. If the text is a single space, then remove it
+	-- This makes :::* equal to :: :*, but ::  :* not. In the latter case, one space
+	-- will be kept
+	--TODO: Add a meta option to turn this option on or off. For now it is disabled
+	--[[
+	if _inlines[start_idx + 1] and _inlines[start_idx + 1].t == "Space" then
+		if _inlines[start_idx].text == "" then
+			start_idx = start_idx + 2
+		end
+	end
+	]]
+
 	local inside_span = slice(_inlines, start_idx, end_idx)
 
 	-- 1. Create the new Span element
@@ -682,36 +697,21 @@ local function find_pattern_in_inlines(inlines, placeholders, start_idx, is_righ
 	end
 end
 
-local function find_common_filter(_left, _right)
-	local common = table_first_common_element(_left, _right)
-	return common
 
-	--[[
-	for _, r in ipairs(_right) do
-		local rfilter = r.filter
-		for _, l in ipairs(_left) do
-			local lfilter = l.filter
-			if lfilter == rfilter then
-				return lfilter
-			end
-		end
-	end
-	return nil
-	]]
-end
-
-
+--- Given two matches, find the two filters that are the same for the match,
+-- and fill the left and right positions.
+-- For each match, several filters can match either the left or the right placeholder
+-- This function finds the filter that contains the same left and right placeholders
+-- @param table  left match table
+-- @param table  right match table
+-- @return table with the common match info
 local function find_match_pair(_left, _right)
-	local final_matches = {
-		-- left = nil,
-		-- right = nil,
-		-- filter = nil,
-	}
+	local final_matches = {}
 
 	-- Find the common filter between the left and right matches
-	-- if not common_filter then
-	-- 	return nil
-	-- end
+	if not _right then
+		return nil
+	end
 	for i, rmatch in ipairs(_right) do
 		if _left.inline_pos == rmatch.inline_pos then
 			if _left.match_end >= rmatch.match_start then
@@ -720,7 +720,8 @@ local function find_match_pair(_left, _right)
 		elseif _left.inline_pos > rmatch.inline_pos then
 			goto continue
 		end
-		local common_filter = find_common_filter(_left.filter, rmatch.filter)
+		local common_filter = table_first_common_element(_left.filter, rmatch.filter)
+		-- local common_filter = find_common_filter(_left.filter, rmatch.filter)
 		final_matches.left = _left.inline_pos
 		final_matches.right = rmatch.inline_pos
 		final_matches.filter = common_filter
@@ -731,11 +732,7 @@ local function find_match_pair(_left, _right)
 
 		::continue::
 	end
-	-- if final_matches.filter then
-	-- 	return final_matches
-	-- else
 	return nil
-	-- end
 end
 
 
@@ -779,13 +776,18 @@ local function replace_span(inlines, filter)
 			table.insert(matching_locations, match_pair)
 		end
 	end
+	-- Return if no matches to the right placeholder
+	if #matching_locations == 0 then
+		-- Return unmodified
+		return inlines, false
+	end
 
 	-- Getting the first position of the match
 	local start_idx = matching_locations[1].left
 	-- The total number of inlines being processed
 	local total_inlines = #inlines
 	-- The new inlines start with the inlines up to the first match location
-	local inlines_modified = slice(inlines, 1, start_idx - 1)
+	local inlines_modified = {} --slice(inlines, 1, start_idx - 1)
 	local last_inline_pos = 1
 
 	-- ┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┤ Iterating the valid match locations ├┅┅┅┅┅┅┅┅┅┅┅┅┅┅
