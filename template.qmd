@@ -2,34 +2,61 @@
 title: "flexspan example"
 subtitle: Pandoc/Quarto extension
 filters:
-  - _extensions/flexspan/flexspan.lua
+  - flexspan
 flexspan:
-  - left: "[-"
-    right: "-]"
-    command: "texttt" # Mono font in LaTeX 
+  # Styled rules: work in every output format, nothing else to define
   - left: "!!"
-    right: "!!"
-    command: "textbf" # Bold font in LaTeX
-  - left: "--"
-    right: "--"
-    command: "custombox" # New command with an optional parameter that defines the color for drawing a box around the text. Default is Red
-  - left: "-!"
-    right: "!-"
-    command: "custombox" 
-    opts: Cerulean 
-
+    color: red
+  - left: "=="
+    bg: yellow
+  - left: "(("
+    right: "))"
+    color: "#1e90ff"
+    bold: true
+  # Colour chosen where it is used: -=text=-(blue)
+  - left: "-="
+    right: "=-"
+  # Named rule: \custombox[opts]{..} in LaTeX, #custombox(..)[..] in Typst,
+  # <span class="custombox"> in HTML, character style "custombox" in docx
+  - left: "%%"
+    command: custombox
 format:
+  html:
+    css: flexspan-example.css
   pdf:
     include-in-header:
       - text: |
-          \usepackage[dvipsnames]{xcolor}
           \newcommand{\custombox}[2][Dandelion]{\colorbox{#1}{#2}}
     keep-tex: true
+  typst:
+    include-in-header:
+      - text: |
+          #let custombox(..args, body) = box(
+            fill: eval(args.pos().at(0, default: "orange")),
+            inset: (x: 3pt), outset: (y: 3pt), body)
+  docx: default
 ---
 
-## Usage
+## Colours: !!red heading!!
 
-* This is a test of [-flexspan-] extension and it is !!nice!!
-* Using the new placeholders --flexspan--(LimeGreen) with options
-* Using the new placeholders -!flexspan!- with opts: Cerulean
+- Plain text with a !!red!! word and a ==highlighted== one.
+- **Bold text with a !!red!! word**, *emphasis with a !!red!! word*,
+  and !!red text with **bold** and *emphasis* inside!!.
+- A rule can combine styles: ((blue and bold)).
+- Colour given on the spot: -=green=-(green), -=white on navy=-(white, bg=navy),
+  -=bold orange=-(orange, bold), -=hex=-(#8a2be2).
+- Nested: !!red ==red on yellow== red!!.
+- A [link with a !!red!! word](https://quarto.org) and a footnote^[With a !!red!! word.].
 
+## Named commands
+
+- Default: %%flexspan%% and with an option: %%flexspan%%(lime).
+
+## Left alone
+
+- Wow!! Great!! (delimiters glued to a word), `!!code!!`, $a!!b!!$ and
+  [!!protected!!]{.skipspan}.
+
+| Table      | Cell      |
+|------------|-----------|
+| !!red!!    | ==mark==  |

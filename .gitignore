@@ -1,3 +1,11 @@
 *.html
 *.pdf
 *.tex
+
+# Output of render-all.sh and of rendering showcase.qmd / template.qmd
+*.docx
+!showcase-reference.docx
+*.typ
+*_files/
+.quarto/
+render-all.log
