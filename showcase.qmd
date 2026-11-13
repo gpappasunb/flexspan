@@ -1,0 +1,308 @@
+---
+title: "flexspan showcase"
+subtitle: "Every use case, in every output format"
+filters:
+  - flexspan
+
+flexspan:
+  # ── 1. Styled rules: the filter does the formatting ──────────────────────
+  - left: "!!"            # text colour, bold
+    color: red
+    bold: true
+  - left: "=="            # background colour
+    bg: yellow
+  - left: "++"            # several styles at once
+    color: "#2e8b57"
+    bold: true
+  - left: "+-"            # underline
+    right: "-+"
+    underline: true
+  - left: "!-"            # strike-out
+    right: "-!"
+    strike: true
+    color: gray
+
+  - left: "%["            # inline code, like backticks: %[code here]
+    right: "]"
+    code: true
+
+  # ── 2. Colour chosen in the text ─────────────────────────────────────────
+  - left: "-="            # -=text=-(blue)
+    right: "=-"
+  - left: "-="            # shortcuts sharing the same opening delimiter
+    right: "=-r"
+    opts: "red, bold"
+  - left: "-="
+    right: "=-g"
+    opts: "green, bold"
+  - left: "-="
+    right: "=-b"
+    opts: "blue, bold"
+  - left: "-="
+    right: "=-c"
+    opts: "aqua, bold"
+  - left: "-="
+    right: "=-p"
+    opts: "purple, bold"
+  - left: "-="
+    right: "=-o"
+    opts: "orange, bold"
+
+  # ── 3. Class + style ─────────────────────────────────────────────────────
+  - left: "(("
+    right: "))"
+    class: note           # CSS hook in HTML, character style in Word
+    color: "#1e90ff"
+    italic: true
+
+  # ── 4. Named rule: defined separately for each format (see `format:`) ────
+  - left: "%%"
+    command: badge
+
+  # ── 5. Symbols (`exact`) and fixed content ───────────────────────────────
+  - left: "-"
+    right: "\\>"
+    exact: true
+    content: "→"
+    color: crimson
+    bold: true
+  - left: "\\<"
+    right: "-"
+    exact: true
+    content: "←"
+    color: crimson
+    bold: true
+  - left: "("
+    right: "!)"
+    exact: true
+    content: "!"
+    color: white
+    bg: darkorange
+    bold: true
+  - left: "[["
+    right: "]]"
+    content: "REDACTED"
+    color: white
+    bg: black
+
+format:
+  html:
+    css: showcase.css
+    toc: true
+  revealjs:
+    output-file: showcase-slides.html
+    css: showcase.css
+    scrollable: true
+    smaller: true
+  docx:
+    reference-doc: showcase-reference.docx
+  typst:
+    output-file: showcase-typst.pdf
+    keep-typ: true
+    include-in-header:
+      - text: |
+          #let badge(..args, body) = {
+            let tones = (info: rgb("#1e90ff"), ok: rgb("#2e8b57"), warn: rgb("#d2691e"))
+            box(fill: tones.at(args.pos().at(0, default: "info")),
+                inset: (x: 4pt), outset: (y: 3pt), radius: 3pt,
+                text(fill: white, weight: "bold", body))
+          }
+  pdf:
+    output-file: showcase-latex.pdf
+    keep-tex: true
+    include-in-header:
+      - text: |
+          \definecolor{badgeinfo}{HTML}{1E90FF}
+          \definecolor{badgeok}{HTML}{2E8B57}
+          \definecolor{badgewarn}{HTML}{D2691E}
+          \newcommand{\badge}[2][info]{\colorbox{badge#1}{\textcolor{white}{\textbf{#2}}}}
+---
+
+## Quick reference
+
+All the placeholders defined in this document. Each one is shown in detail in
+the sections that follow.
+
+| Syntax                      | Purpose                                   | Result                    |
+|-----------------------------|-------------------------------------------|---------------------------|
+| `!!text!!`                  | text colour: bold red                     | !!text!!                  |
+| `==text==`                  | background colour (highlight)             | ==text==                  |
+| `++text++`                  | several styles: green and bold            | ++text++                  |
+| `+-text-+`                  | underline                                 | +-text-+                  |
+| `!-text-!`                  | strike-out, in gray                       | !-text-!                  |
+| `%[code here]`              | inline code, same as backticks            | %[code here]              |
+| `-=text=-(blue)`            | colour given as an option                 | -=text=-(blue)            |
+| `-=text=-(white, bg=navy)`  | colour and background as options          | -=text=-(white, bg=navy)  |
+| `-=text=-(#8a2be2, bold)`   | hex colour and a style as options         | -=text=-(#8a2be2, bold)   |
+| `-=text=-r`                 | shortcut: bold red                        | -=text=-r                 |
+| `-=text=-g`                 | shortcut: bold green                      | -=text=-g                 |
+| `-=text=-b`                 | shortcut: bold blue                       | -=text=-b                 |
+| `-=text=-c`                 | shortcut: bold aqua                       | -=text=-c                 |
+| `-=text=-p`                 | shortcut: bold purple                     | -=text=-p                 |
+| `-=text=-o`                 | shortcut: bold orange                     | -=text=-o                 |
+| `((text))`                  | class `note` with colour and italic       | ((text))                  |
+| `%%text%%`                  | named rule `badge`                        | %%text%%                  |
+| `%%text%%(ok)`              | named rule with an option                 | %%text%%(ok)              |
+| `%%text%%(warn)`            | named rule with another option            | %%text%%(warn)            |
+| `->`                        | symbol: right arrow                       | ->                        |
+| `<-`                        | symbol: left arrow                        | <-                        |
+| `(!)`                       | symbol: warning mark                      | (!)                       |
+| `[[text]]`                  | fixed content replacing the text          | [[text]]                  |
+| `[!!text!!]{.skipspan}`     | protected: placeholders left as typed     | [!!text!!]{.skipspan}     |
+
+## Text colour
+
+```markdown
+A !!red!! word. **Bold text with a !!red!! word.** *Emphasis with a !!red!! word.*
+!!Red text with **bold** and *emphasis* inside.!!
+```
+
+A !!red!! word. **Bold text with a !!red!! word.** *Emphasis with a !!red!! word.*
+!!Red text with **bold** and *emphasis* inside.!!
+
+## Background, underline, strike-out
+
+```markdown
+==Highlighted==, +-underlined-+, !-struck out-! and ++green and bold++.
+***Bold emphasis with ==highlight== and +-underline-+.***
+```
+
+==Highlighted==, +-underlined-+, !-struck out-! and ++green and bold++.
+***Bold emphasis with ==highlight== and +-underline-+.***
+
+## Inline code
+
+`code: true` turns the enclosed text into inline code, exactly like backticks.
+The closing delimiter may be a single character.
+
+```markdown
+Run %[ls -la] or %[git status --short], then open %[~/.config/app.toml].
+It combines with other styles: -=highlighted code=-(code, bg=gold).
+```
+
+Run %[ls -la] or %[git status --short], then open %[~/.config/app.toml].
+It combines with other styles: -=highlighted code=-(code, bg=gold).
+
+## Colour chosen in the text
+
+Options go in parentheses, right after the closing delimiter.
+
+```markdown
+-=green=-(green), -=hex colour=-(#8a2be2), -=white on navy=-(white, bg=navy),
+-=bold orange=-(orange, bold), -=underlined teal=-(teal, underline),
+-=only a background=-(bg=gold), -=no option, plain text=-.
+```
+
+-=green=-(green), -=hex colour=-(#8a2be2), -=white on navy=-(white, bg=navy),
+-=bold orange=-(orange, bold), -=underlined teal=-(teal, underline),
+-=only a background=-(bg=gold), -=no option, plain text=-.
+
+## Shortcuts: one opening delimiter, several closing ones
+
+```markdown
+-=red=-r, -=green=-g, -=blue=-b, -=aqua=-c, -=purple=-p, -=orange=-o,
+and an override: -=plain teal=-b(teal).
+```
+
+-=red=-r, -=green=-g, -=blue=-b, -=aqua=-c, -=purple=-p, -=orange=-o,
+and an override: -=plain teal=-b(teal).
+
+## Nesting
+
+```markdown
+!!Red ==red on yellow== red!!, ==yellow !!red on yellow!! yellow==,
+++green -=blue inside green=-b green++, **bold !!red ==marked== red!! bold**.
+```
+
+!!Red ==red on yellow== red!!, ==yellow !!red on yellow!! yellow==,
+++green -=blue inside green=-b green++, **bold !!red ==marked== red!! bold**.
+
+## Headings with !!colour!! and ==highlight==
+
+```markdown
+## Headings with !!colour!! and ==highlight==
+
+A [link with a !!red!! word](https://quarto.org), a footnote[^1], H~!!2!!~O, x^!!2!!^,
+"quoted !!red!! text", ~~!!red and struck!!~~.
+```
+
+A [link with a !!red!! word](https://quarto.org), a footnote[^1], H~!!2!!~O, x^!!2!!^,
+"quoted !!red!! text", ~~!!red and struck!!~~.
+
+[^1]: Footnotes work too: !!red!!, ==highlighted==, -=blue=-b.
+
+## Lists, quotes and tables
+
+```markdown
+1. First !!red!! item
+   - nested ==highlighted== item
+
+> A quotation with -=green=-g words.
+
+| Status          | Meaning          |
+|-----------------|------------------|
+| !!failed!!      | ==look at this== |
+| -=passed=-g     | ++all good++     |
+```
+
+1. First !!red!! item
+   - nested ==highlighted== item
+
+> A quotation with -=green=-g words.
+
+| Status          | Meaning          |
+|-----------------|------------------|
+| !!failed!!      | ==look at this== |
+| -=passed=-g     | ++all good++     |
+
+## Class + style
+
+`class` adds a CSS class (HTML) or a character style (Word) on top of the style
+keys. LaTeX and Typst simply use the style keys.
+
+```markdown
+An ((annotated remark)) in the middle of a sentence.
+```
+
+An ((annotated remark)) in the middle of a sentence.
+
+## Named rule
+
+`command: badge` hands the text to `\badge` (LaTeX), `#badge` (Typst),
+`.badge` (CSS) or the character style `badge` (Word). Each is defined in the
+`format:` section of this document.
+
+```markdown
+%%default%% %%passed%%(ok) %%careful%%(warn) and a hand-written span: [span]{.badge}
+```
+
+%%default%% %%passed%%(ok) %%careful%%(warn) and a hand-written span: [span]{.badge}
+
+## Symbols and fixed content
+
+`exact` rules have no content: the delimiters are typed together. `content`
+replaces the enclosed text.
+
+```markdown
+Step one -> step two <- step three. (!) Take care. Options still work: ->(navy)
+
+The password is [[hunter2]].
+```
+
+Step one -> step two <- step three. (!) Take care. Options still work: ->(navy)
+
+The password is [[hunter2]].
+
+## Left alone
+
+```markdown
+Wow!! Great!! (delimiters glued to a word), `!!code!!`, $a == b$,
+[!!protected by a span!!]{.skipspan}, an unclosed !! delimiter.
+```
+
+Wow!! Great!! (delimiters glued to a word), `!!code!!`, $a == b$,
+[!!protected by a span!!]{.skipspan}, an unclosed !! delimiter.
+
+::: skipspan
+A whole block can be protected: !!not red!!, ==not highlighted==.
+:::
