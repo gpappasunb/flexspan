@@ -85,6 +85,21 @@ flexspan:
     color: white
     bg: black
 
+  # ── 6. Format blocks: one rule, a different meaning per output format ────
+  - left: "("
+    right: "*)"
+    exact: true
+    content: "★"            # every format ...
+    color: goldenrod
+    latex:                  # ... but LaTeX uses a command: \fstar{}
+      command: fstar
+      content: ""
+      color: ""
+    typst:                  # ... Typst another symbol
+      content: "✦"
+    revealjs:               # ... and slides add a class
+      class: slide-star
+
 format:
   html:
     css: showcase.css
@@ -116,6 +131,7 @@ format:
           \definecolor{badgeok}{HTML}{2E8B57}
           \definecolor{badgewarn}{HTML}{D2691E}
           \newcommand{\badge}[2][info]{\colorbox{badge#1}{\textcolor{white}{\textbf{#2}}}}
+          \newcommand{\fstar}[1]{\textcolor{red}{$\star$}#1}
 ---
 
 ## Quick reference
@@ -292,6 +308,20 @@ The password is [[hunter2]].
 Step one -> step two <- step three. (!) Take care. Options still work: ->(navy)
 
 The password is [[hunter2]].
+
+## Format blocks
+
+A rule can hold a block named after an output format (`latex`, `html`,
+`typst`, `docx`, `beamer`, `revealjs`). Its keys replace those of the rule in
+that format only.
+
+```markdown
+A star (*) that is a gold ★ by default, the command `\fstar{}` in LaTeX and
+a ✦ in Typst.
+```
+
+A star (*) that is a gold ★ by default, the command `\fstar{}` in LaTeX and
+a ✦ in Typst.
 
 ## Left alone
 

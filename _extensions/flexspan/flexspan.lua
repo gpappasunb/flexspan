@@ -45,6 +45,26 @@
 -- | opts      | opt, options                    | default options                           |
 -- | content   | contents, val, arg              | fixed content                             |
 -- | exact     | single, one, join, contiguous   | delimiters must be adjacent, no content   |
+-- | latex, html, typst, docx, beamer, revealjs | map of the keys above, used only  |
+-- |           |                                 | for that output format (see below)        |
+--
+-- ## Format blocks
+--
+-- A rule can mean something different in each output format:
+--
+-- ```yaml
+--   - left: "::"
+--     right: ":*"
+--     exact: true
+--     content: "●"          # every format ...
+--     latex:                # ... except LaTeX/beamer: \iconbullet{}
+--       command: iconbullet
+--       content: ""
+-- ```
+--
+-- `html` covers every format that is not latex, typst or docx. `beamer` and
+-- `revealjs` apply to that writer only, on top of `latex` / `html`. An empty
+-- value removes `command`, `class`, `opts`, `color` or `bg`.
 --
 -- ## Options
 --
@@ -68,7 +88,7 @@
 --
 -- Author: Georgios Pappas Jr
 --         Universidade de Brasília (UnB) - Brasil
--- Version: 2.0.0
+-- Version: 2.1.0
 ------------------------------------------------------------------
 
 local META_NAME = "flexspan"
@@ -321,6 +341,29 @@ for name, aliases in pairs(KEY_ALIASES) do
 end
 local BOOLEAN_KEYS = { exact = true, bold = true, italic = true, underline = true, strike = true, code = true }
 
+-- Format blocks: a rule may hold a map named after an output format; its keys
+-- replace those of the rule when rendering to that format.
+--   latex, html, typst, docx : output families (see KIND)
+--   beamer, revealjs         : one writer only, applied after its family
+local FORMAT_KEYS = { latex = true, html = true, typst = true, docx = true, beamer = true, revealjs = true }
+-- Delimiters and matching are the same in every format
+local NOT_IN_BLOCK = { left = true, right = true, exact = true }
+
+local function is_map(v)
+	return type(v) == "table" and pandoc.utils.type(v) == "table"
+end
+
+--- Format blocks that apply to the current output, least specific first.
+local function active_blocks()
+	local names = { KIND }
+	for name in pairs(FORMAT_KEYS) do
+		if name ~= KIND and FORMAT == name then
+			names[#names + 1] = name
+		end
+	end
+	return names
+end
+
 --- Turns one metadata definition into a rule table (or nil if invalid).
 local function read_rule(def, n)
 	if type(def) ~= "table" or pandoc.utils.type(def) == "Inlines" then
@@ -328,24 +371,41 @@ local function read_rule(def, n)
 		return nil
 	end
 	local rule = { n = n }
-	for key, value in pairs(def) do
-		local name = CANONICAL[key]
-		if not name then
-			warn(("rule #%d: unknown key '%s' ignored"):format(n, tostring(key)))
-		elseif BOOLEAN_KEYS[name] then
-			rule[name] = as_bool(value)
-		else
-			-- Delimiters are parsed as markdown by pandoc, exactly like the
-			-- document text, so "--" in both places becomes the same en-dash.
-			rule[name] = stringify(value)
-			if rule[name] == "" and (name == "left" or name == "right") then
-				warn(
-					("rule #%d: '%s' is empty once parsed as markdown; escape special characters, e.g. \"\\\\>\""):format(
-						n,
-						key
+	--- Copies the keys of `map` into the rule. `block` is the name of the
+	-- format block being read, nil for the rule itself.
+	local function apply(map, block)
+		local where = block and (" (in '" .. block .. "')") or ""
+		for key, value in pairs(map) do
+			local name = CANONICAL[key]
+			if not block and FORMAT_KEYS[key] then
+				if not is_map(value) then
+					warn(("rule #%d: '%s' must be a map of rule keys; ignored"):format(n, key))
+				end
+			elseif not name then
+				warn(("rule #%d: unknown key '%s' ignored%s"):format(n, tostring(key), where))
+			elseif block and NOT_IN_BLOCK[name] then
+				warn(("rule #%d: '%s' cannot change per format; ignored%s"):format(n, key, where))
+			elseif BOOLEAN_KEYS[name] then
+				rule[name] = as_bool(value)
+			else
+				-- Delimiters are parsed as markdown by pandoc, exactly like the
+				-- document text, so "--" in both places becomes the same en-dash.
+				rule[name] = stringify(value)
+				if rule[name] == "" and (name == "left" or name == "right") then
+					warn(
+						("rule #%d: '%s' is empty once parsed as markdown; escape special characters, e.g. \"\\\\>\""):format(
+							n,
+							key
+						)
 					)
-				)
+				end
 			end
+		end
+	end
+	apply(def)
+	for _, block in ipairs(active_blocks()) do
+		if is_map(def[block]) then
+			apply(def[block], block)
 		end
 	end
 	if not rule.left or rule.left == "" then

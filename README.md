@@ -20,6 +20,10 @@ That is all that is needed: the example above gives red text in HTML, PDF
 
 ## Installation
 
+flexspan is self-contained: no other extension is needed. (For icons it can
+optionally be paired with fontawesome-raw, see
+[Icons](#icons-using-flexspan-together-with-fontawesome-raw).)
+
 ### Quarto
 
     quarto install extension gpappasunb/flexspan
@@ -39,6 +43,36 @@ project:
 filters:
   - flexspan
 ```
+
+### Inside another extension
+
+Flexspan can be embedded in another extension, for example a slide theme, so
+that documents using that theme get flexspan without installing it. From the
+directory that holds the other extension's `_extensions/` folder:
+
+```bash
+quarto add gpappasunb/flexspan --embed unb-slides
+```
+
+or, from a local copy of this repository (packages only the filter, not the
+test files):
+
+```bash
+./embed.sh ~/quarto/extensions/unb-slides unb-slides
+```
+
+Then list it among the host extension's filters, in its `_extension.yml`:
+
+```yaml
+contributes:
+  formats:
+    revealjs:
+      filters:
+        - flexspan
+```
+
+The filter does nothing in documents without a `flexspan:` metadata key, so it
+is safe to include by default. Run `embed.sh` again to update the embedded copy.
 
 ### Pandoc
 
@@ -230,6 +264,7 @@ Hand-written spans work too, for any class that is the `command` of a rule:
 | `opts`      | `opt`, `options`                      | default options                                      |
 | `content`   | `contents`, `val`, `arg`              | fixed content; the enclosed text is discarded        |
 | `exact`     | `single`, `one`, `join`, `contiguous` | the delimiters are written together, with no content |
+| `latex`, `html`, `typst`, `docx`, `beamer`, `revealjs` |  | map of the keys above, used for that output format only ([format blocks](#format-blocks)) |
 
 Unknown keys, missing delimiters and duplicated delimiter pairs are reported
 on the terminal (`[flexspan] rule #3: unknown key 'comand' ignored`).
@@ -253,6 +288,111 @@ flexspan:
 ```
 
 `content` replaces whatever is enclosed with a fixed text.
+
+### Format blocks
+
+A LaTeX command such as `\iconbullet` means nothing in HTML or Word. A rule
+can therefore hold a block named after an output format; the keys inside it
+replace those of the rule when rendering to that format:
+
+```yaml
+flexspan:
+  - left: "::"
+    right: ":*"
+    exact: true
+    content: "●"            # every format ...
+    color: navy
+    latex:                  # ... except LaTeX and beamer: \iconbullet{}
+      command: iconbullet
+      content: ""
+      color: ""
+  - left: "!!"
+    command: hlred          # LaTeX command, Typst function, Word style
+    html:                   # HTML: no class, plain styling instead
+      command: ""
+      color: red
+      bold: true
+```
+
+| Block                              | Applies to                                         |
+| ---------------------------------- | -------------------------------------------------- |
+| `latex`, `typst`, `docx`           | that output family (`latex` includes beamer / pdf) |
+| `html`                             | every other format (html, revealjs, epub, ...)     |
+| `beamer`, `revealjs`               | that writer only, on top of `latex` / `html`       |
+
+- A block accepts every key except the delimiters and `exact`: what is
+  matched is the same in all formats.
+- An empty value removes `command`, `class`, `opts`, `color` or `bg`;
+  `content: ""` means "no content"; booleans are switched off with `false`.
+- Blocks for other formats are ignored.
+
+### Icons: using flexspan together with fontawesome-raw
+
+flexspan has no dependencies: it never needs another extension, and nothing
+below is required to use it. It combines well, however, with
+`fontawesome-raw`, a separate Quarto extension installed on its own: a
+filter that turns raw FontAwesome glyph characters into real icons. Used
+together, a short symbol such as `::v` becomes an icon:
+
+```yaml
+filters:
+  - flexspan            # first: writes the glyph
+  - fontawesome-raw     # second: turns the glyph into an icon
+
+flexspan:
+  - left: "::"
+    right: "v"
+    exact: true
+    content: "\uf00c"         # FontAwesome "check"
+  - left: "::"
+    right: "!"
+    exact: true
+    content: "\uf071"         # FontAwesome "triangle-exclamation"
+    color: crimson
+```
+
+```markdown
+Done ::v     Careful ::!     A green check: ::v(green)
+```
+
+The glyph is written as a YAML escape (`"\uf00c"`, double quotes required) or
+pasted as the character itself; the code of each icon is its "Unicode" value
+on fontawesome.com.
+
+What you get:
+
+| Output              | Result                                                       |
+| ------------------- | ------------------------------------------------------------ |
+| HTML, revealjs      | `<i class="fa-solid fa-check">`, FontAwesome CSS loaded       |
+| LaTeX, beamer (pdf) | `\faIcon{check}`, package `fontawesome6` loaded              |
+| Typst, Word         | not handled by fontawesome-raw: the raw glyph is left as is  |
+
+Things to know:
+
+- **Order matters.** `flexspan` must be listed before `fontawesome-raw`.
+  The other way round the icons disappear: fontawesome-raw converts the glyph
+  inside the rule itself before flexspan reads it.
+- **Colours.** `color`, `bg` and inline options (`::v(green)`) are applied by
+  flexspan around the icon. This needs fontawesome-raw 1.0.1 or later; version
+  1.0.0 drops the colour.
+- **Typst and Word.** Give those formats something they can show with a
+  [format block](#format-blocks):
+
+  ```yaml
+  - left: "::"
+    right: "v"
+    exact: true
+    content: "\uf00c"
+    typst: { content: "✔" }
+    docx: { content: "✔" }
+  ```
+
+- **Without fontawesome-raw** the same rules still match, but the glyph is a
+  private-use character that shows as an empty box. Use ordinary characters
+  (`content: "✔"`, `"→"`, `"⚠"`) when you do not want the second filter.
+- **Embedding.** An extension that ships such rules must embed both filters
+  (see [Inside another extension](#inside-another-extension)) and list them in
+  that order.
 
 ## Where it works, and where it does not
 
@@ -321,6 +461,11 @@ Notes:
   document is needed. Named rules use a character style with the rule's name;
   pandoc creates it empty, and you can give it a look in your reference
   document.
+
+## Changes in version 2.1
+
+- [Format blocks](#format-blocks): a rule can have different keys for each
+  output format (`latex`, `html`, `typst`, `docx`, `beamer`, `revealjs`).
 
 ## Changes in version 2
 
