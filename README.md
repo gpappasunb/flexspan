@@ -88,12 +88,13 @@ Pandoc 3.0 or later is required.
 
 ## Built-in rules
 
-These rules work without any metadata (since version 2.2):
+These rules work without any metadata (since version 2.2; `++` since 2.3):
 
 | Write | Result |
 |-------|--------|
 | `!!text!!` | red, bold |
 | `==text==` | yellow background |
+| `++text++` | sea green (`#2e8b57`), bold |
 | `%[ls -la]` | inline code, like backticks |
 | `-=text=-(blue)` | no style of its own: the style is given as options, e.g. `-=text=-(white, bg=navy, bold)` |
 | `-=text=-r` `=-g` `=-b` `=-c` `=-p` `=-o` | shortcuts: bold red, green, blue, aqua, purple, orange |
@@ -504,6 +505,11 @@ Notes:
   document is needed. Named rules use a character style with the rule's name;
   pandoc creates it empty, and you can give it a look in your reference
   document.
+
+## Changes in version 2.3
+
+- New built-in rule `++text++`: sea green, bold. "C++" is not affected: an
+  opening delimiter right after a letter is not matched.
 
 ## Changes in version 2.2
 

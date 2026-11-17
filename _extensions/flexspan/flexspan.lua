@@ -436,6 +436,9 @@ flexspan:
     bold: true
   - left: "=="            # ==highlight==        yellow background
     bg: yellow
+  - left: "++"            # ++text++             sea green, bold
+    color: "#2e8b57"
+    bold: true
   - left: "%["            # %[ls -la]            inline code
     right: "]"
     code: true
