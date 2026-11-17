@@ -86,6 +86,47 @@ pandoc -s doc.md -o doc.docx --lua-filter=flexspan.lua
 
 Pandoc 3.0 or later is required.
 
+## Built-in rules
+
+These rules work without any metadata (since version 2.2):
+
+| Write | Result |
+|-------|--------|
+| `!!text!!` | red, bold |
+| `==text==` | yellow background |
+| `%[ls -la]` | inline code, like backticks |
+| `-=text=-(blue)` | no style of its own: the style is given as options, e.g. `-=text=-(white, bg=navy, bold)` |
+| `-=text=-r` `=-g` `=-b` `=-c` `=-p` `=-o` | shortcuts: bold red, green, blue, aqua, purple, orange |
+| `+-text-+` | underline |
+| `!-text-!` | strike-out, grey |
+| `((text))` | class `note` (HTML) / character style (Word), blue italic |
+
+Your own rules are added to these. A rule with the same `left` **and**
+`right` delimiters as a built-in one replaces it completely (keys are not
+merged), so this makes `!!` blue and not bold:
+
+```yaml
+flexspan:
+  - left: "!!"
+    color: blue
+```
+
+The same holds between layers: a format's rules (for example from an
+extension such as unb-slides) replace the built-in ones, and the rules of the
+project (`_quarto.yml`) and of the document replace those of the format. The
+last definition wins.
+
+To remove one rule, repeat its delimiters with `disable: true`; to remove all
+built-in rules, set `flexspan-defaults: false`:
+
+```yaml
+flexspan-defaults: false        # no built-in rules at all
+flexspan:
+  - left: "(("
+    right: "))"
+    disable: true               # or remove just this one
+```
+
 ## Two kinds of rules
 
 Every entry of the `flexspan` list is a rule. A rule always has a `left`
@@ -264,10 +305,12 @@ Hand-written spans work too, for any class that is the `command` of a rule:
 | `opts`      | `opt`, `options`                      | default options                                      |
 | `content`   | `contents`, `val`, `arg`              | fixed content; the enclosed text is discarded        |
 | `exact`     | `single`, `one`, `join`, `contiguous` | the delimiters are written together, with no content |
+| `disable`   | `disabled`, `off`                     | `true`: remove the rule with these delimiters ([built-in rules](#built-in-rules)) |
 | `latex`, `html`, `typst`, `docx`, `beamer`, `revealjs` |  | map of the keys above, used for that output format only ([format blocks](#format-blocks)) |
 
-Unknown keys, missing delimiters and duplicated delimiter pairs are reported
-on the terminal (`[flexspan] rule #3: unknown key 'comand' ignored`).
+Unknown keys and missing delimiters are reported on the terminal
+(`[flexspan] rule #3: unknown key 'comand' ignored`). A repeated delimiter
+pair is not an error: the later rule replaces the earlier one.
 
 ### Symbols: `exact` and `content`
 
@@ -461,6 +504,15 @@ Notes:
   document is needed. Named rules use a character style with the rule's name;
   pandoc creates it empty, and you can give it a look in your reference
   document.
+
+## Changes in version 2.2
+
+- [Built-in rules](#built-in-rules): `!!`, `==`, `%[ ]`, `-= =-` with the
+  colour shortcuts `=-r` … `=-o`, `+- -+`, `!- -!` and `(( ))` work without
+  metadata. Turn them off with `flexspan-defaults: false`.
+- A rule with the same delimiters as an earlier one now replaces it (it used
+  to be ignored with a warning). The document has the last word.
+- `disable: true` removes a rule.
 
 ## Changes in version 2.1
 

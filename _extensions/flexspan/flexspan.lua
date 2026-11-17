@@ -332,6 +332,7 @@ local KEY_ALIASES = {
 	underline = { "underline" },
 	strike = { "strike" },
 	code = { "code" },
+	disable = { "disable", "disabled", "off" },
 }
 local CANONICAL = {}
 for name, aliases in pairs(KEY_ALIASES) do
@@ -339,7 +340,8 @@ for name, aliases in pairs(KEY_ALIASES) do
 		CANONICAL[alias] = name
 	end
 end
-local BOOLEAN_KEYS = { exact = true, bold = true, italic = true, underline = true, strike = true, code = true }
+local BOOLEAN_KEYS =
+	{ exact = true, bold = true, italic = true, underline = true, strike = true, code = true, disable = true }
 
 -- Format blocks: a rule may hold a map named after an output format; its keys
 -- replace those of the rule when rendering to that format.
@@ -423,40 +425,126 @@ local function read_rule(def, n)
 	return rule
 end
 
-local function read_meta(meta)
-	local defs = meta[META_NAME]
-	if not defs then
-		return
+-- Built-in rules, active unless the document sets `flexspan-defaults: false`.
+-- They are written as YAML and read like document metadata, so delimiters go
+-- through the same markdown parsing as rules written by the user.
+local DEFAULTS_YAML = [[
+---
+flexspan:
+  - left: "!!"            # !!warning!!          red, bold
+    color: red
+    bold: true
+  - left: "=="            # ==highlight==        yellow background
+    bg: yellow
+  - left: "%["            # %[ls -la]            inline code
+    right: "]"
+    code: true
+  - left: "-="            # -=text=-(blue)       style given as options
+    right: "=-"
+  - left: "-="            # -=text=-r            shortcuts: bold + colour
+    right: "=-r"
+    opts: "red, bold"
+  - left: "-="
+    right: "=-g"
+    opts: "green, bold"
+  - left: "-="
+    right: "=-b"
+    opts: "blue, bold"
+  - left: "-="
+    right: "=-c"
+    opts: "aqua, bold"
+  - left: "-="
+    right: "=-p"
+    opts: "purple, bold"
+  - left: "-="
+    right: "=-o"
+    opts: "orange, bold"
+  - left: "+-"            # +-underline-+
+    right: "-+"
+    underline: true
+  - left: "!-"            # !-strike-out-!
+    right: "-!"
+    strike: true
+    color: gray
+  - left: "(("            # ((note))             class "note", blue italic
+    right: "))"
+    class: note
+    color: "#1e90ff"
+    italic: true
+---
+]]
+
+--- The built-in rules as a list of metadata maps.
+local function default_defs()
+	local ok, doc = pcall(pandoc.read, DEFAULTS_YAML, "markdown")
+	if not ok or not doc.meta[META_NAME] then
+		warn("could not read the built-in rules; only the document rules are used")
+		return {}
 	end
-	-- A single rule written without the leading dash
-	if pandoc.utils.type(defs) ~= "List" then
-		defs = { defs }
+	return doc.meta[META_NAME]
+end
+
+local function read_meta(meta)
+	-- Layers, least specific first: built-in rules, then the metadata list.
+	-- Quarto puts a format's rules (e.g. from unb-slides) before those of the
+	-- project and the document, so the document has the last word.
+	local layers = {}
+	local use_defaults = meta[META_NAME .. "-defaults"]
+	if use_defaults == nil or as_bool(use_defaults) then
+		table.insert(layers, { defs = default_defs(), builtin = true })
+	end
+	local defs = meta[META_NAME]
+	if defs then
+		-- A single rule written without the leading dash
+		if pandoc.utils.type(defs) ~= "List" then
+			defs = { defs }
+		end
+		table.insert(layers, { defs = defs })
 	end
 
-	local tokens, groups, seen = {}, {}, {}
-	for n, def in ipairs(defs) do
-		local rule = read_rule(def, n)
-		if rule then
-			local id = rule.left .. "\0" .. rule.right
-			if seen[id] then
-				warn(("rule #%d uses the same delimiters as rule #%d; ignored"):format(n, seen[id]))
-			else
-				seen[id] = n
-				if rule.command then
-					COMMANDS[rule.command] = true
+	-- A rule with the same delimiters as an earlier one replaces it; with
+	-- `disable: true` it removes it.
+	local by_id, order = {}, {}
+	local seq = 0
+	for _, layer in ipairs(layers) do
+		for n, def in ipairs(layer.defs) do
+			local rule = read_rule(def, n)
+			if rule then
+				seq = seq + 1
+				local id = rule.left .. "\0" .. rule.right
+				if not by_id[id] then
+					table.insert(order, id)
 				end
-				if rule.exact then
-					table.insert(tokens, { text = rule.left .. rule.right, exact = rule, n = n })
+				if rule.disable then
+					by_id[id] = false
 				else
-					-- Rules sharing a left delimiter are tried together
-					local group = groups[rule.left]
-					if not group then
-						group = { text = rule.left, rules = {}, n = n }
-						groups[rule.left] = group
-						table.insert(tokens, group)
-					end
-					table.insert(group.rules, rule)
+					rule.n = seq
+					rule.builtin = layer.builtin
+					by_id[id] = rule
 				end
+			end
+		end
+	end
+
+	local tokens, groups = {}, {}
+	for _, id in ipairs(order) do
+		local rule = by_id[id]
+		if rule then
+			local n = rule.n
+			if rule.command then
+				COMMANDS[rule.command] = true
+			end
+			if rule.exact then
+				table.insert(tokens, { text = rule.left .. rule.right, exact = rule, n = n })
+			else
+				-- Rules sharing a left delimiter are tried together
+				local group = groups[rule.left]
+				if not group then
+					group = { text = rule.left, rules = {}, n = n }
+					groups[rule.left] = group
+					table.insert(tokens, group)
+				end
+				table.insert(group.rules, rule)
 			end
 		end
 	end
